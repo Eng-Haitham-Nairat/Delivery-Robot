@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Send Location to ESP32</title>
+</head>
+<body>
+    <h2>اضغط لإرسال موقعك إلى السيارة</h2>
+    <button onclick="sendLocation()">إرسال الموقع</button>
+    
+    <script>
+        let ws = new WebSocket("ws://192.168.1.18:81"); // ضع هنا IP الـ ESP32
+
+        function sendLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(position => {
+                    let lat = position.coords.latitude;
+                    let lon = position.coords.longitude;
+                    let locationString = lat + "," + lon;
+
+                    // إرسال الإحداثيات عبر WebSocket
+                    ws.send(locationString);
+                    alert("تم إرسال موقعك: " + locationString);
+                });
+            } else {
+                alert("المتصفح لا يدعم تحديد الموقع.");
+            }
+        }
+    </script>
+</body>
+</html>
