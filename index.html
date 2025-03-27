@@ -1,17 +1,17 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Delivery Robot</title>
+    <title>روبوت التوصيل</title>
     <style>
         body {
             font-family: Arial, sans-serif;
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh; /* لجعل الصفحة كلها في المنتصف */
-            flex-direction: column; /* ترتيب العناصر عموديًا */
+            height: 100vh;
+            flex-direction: column;
             text-align: center;
             margin: 0;
             background-color: #f0f0f0;
@@ -23,13 +23,19 @@
             color: red;
             font-size: 12px;
             display: none;
+            margin: 10px 0;
+        }
+        #status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
         }
         #requestBtn {
             display: none;
             margin-top: 20px;
-            padding: 20px 40px; /* تكبير الزر */
-            font-size: 20px; /* تكبير الخط داخل الزر */
-            background-color: #4CAF50; /* تغيير لون الزر */
+            padding: 20px 40px;
+            font-size: 20px;
+            background-color: #4CAF50;
             color: white;
             border: none;
             border-radius: 10px;
@@ -37,81 +43,153 @@
             transition: background-color 0.3s;
         }
         #requestBtn:hover {
-            background-color: #45a049; /* تغيير اللون عند التمرير فوق الزر */
+            background-color: #45a049;
+        }
+        #requestBtn:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
         }
         #usernameInput {
             font-size: 16px;
             padding: 10px;
             margin-top: 20px;
             width: 200px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
         }
         .error {
             border: 2px solid red;
         }
+        #coordinates {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #666;
+        }
     </style>
 </head>
 <body>
-    <h1>Delivery Robot</h1>
+    <h1>روبوت التوصيل</h1>
     
-    <input type="text" id="usernameInput" placeholder="Enter Username" oninput="checkUsername()" />
-    <div id="warning">This user is not registered in the database.</div>
+    <input type="text" id="usernameInput" placeholder="أدخل اسم المستخدم" oninput="checkUsername()" />
+    <div id="warning">هذا المستخدم غير مسجل في قاعدة البيانات</div>
+    <div id="status"></div>
+    <div id="coordinates"></div>
     <button id="requestBtn" onclick="sendLocation()">اطلب الآن</button>
     
     <script>
-        let ws = new WebSocket("ws://192.168.1.22:81"); // ضع هنا IP الـ ESP32
+        let ws = null;
         let requestBtn = document.getElementById('requestBtn');
         let usernameInput = document.getElementById('usernameInput');
         let warningMessage = document.getElementById('warning');
+        let statusDiv = document.getElementById('status');
+        let coordinatesDiv = document.getElementById('coordinates');
+        
+        function connectWebSocket() {
+            ws = new WebSocket("ws://192.168.1.22:81");
+            
+            ws.onopen = function() {
+                console.log("تم الاتصال بالروبوت");
+                statusDiv.textContent = "متصل بالروبوت";
+                statusDiv.style.backgroundColor = "#dff0d8";
+                statusDiv.style.color = "#3c763d";
+                requestBtn.disabled = false;
+            };
 
-        ws.onopen = function() {
-            console.log("WebSocket connection established");
-        };
+            ws.onclose = function() {
+                console.log("انقطع الاتصال");
+                statusDiv.textContent = "غير متصل - جاري إعادة المحاولة...";
+                statusDiv.style.backgroundColor = "#f2dede";
+                statusDiv.style.color = "#a94442";
+                requestBtn.disabled = true;
+                setTimeout(connectWebSocket, 2000);
+            };
 
-        ws.onclose = function() {
-            console.log("WebSocket connection closed");
-        };
+            ws.onerror = function(error) {
+                console.log("خطأ في الاتصال:", error);
+                statusDiv.textContent = "خطأ في الاتصال";
+                statusDiv.style.backgroundColor = "#f2dede";
+                statusDiv.style.color = "#a94442";
+                requestBtn.disabled = true;
+            };
 
-        ws.onerror = function(error) {
-            console.log("WebSocket error: " + error);
-        };
+            ws.onmessage = function(event) {
+                console.log("رسالة من الروبوت:", event.data);
+                coordinatesDiv.textContent = "رد من الروبوت: " + event.data;
+            };
+        }
 
-        ws.onmessage = function(event) {
-            console.log("Received message: " + event.data);
-        };
-
-        // وظيفة للتحقق من اسم المستخدم
         function checkUsername() {
             let username = usernameInput.value;
-
-            // إذا كان الاسم Haitham
             if (username === "Haitham") {
-                requestBtn.style.display = "block";  // إظهار الزر
-                warningMessage.style.display = "none"; // إخفاء التحذير
-                usernameInput.classList.remove("error"); // إزالة حدود الخطأ
+                requestBtn.style.display = "block";
+                warningMessage.style.display = "none";
+                usernameInput.classList.remove("error");
             } else {
-                requestBtn.style.display = "none"; // إخفاء الزر
-                warningMessage.style.display = "block"; // عرض التحذير
-                usernameInput.classList.add("error"); // إضافة حدود خطأ حمراء
+                requestBtn.style.display = "none";
+                warningMessage.style.display = "block";
+                usernameInput.classList.add("error");
             }
         }
 
-        // إرسال الموقع عندما يتم الضغط على "اطلب الآن"
         function sendLocation() {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(position => {
-                    let lat = position.coords.latitude;
-                    let lon = position.coords.longitude;
-                    let locationString = lat + "," + lon;
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                alert("لا يوجد اتصال بالروبوت. يرجى الانتظار...");
+                return;
+            }
 
-                    // إرسال الإحداثيات عبر WebSocket
-                    console.log("Sending location: " + locationString);
-                    ws.send(locationString);
-                    alert("تم إرسال موقعك: " + locationString);
-                });
+            requestBtn.disabled = true;
+            
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    position => {
+                        let lat = position.coords.latitude.toFixed(6);
+                        let lon = position.coords.longitude.toFixed(6);
+                        let locationString = lat + "," + lon;
+
+                        console.log("إرسال الموقع:", locationString);
+                        coordinatesDiv.textContent = "الإحداثيات: " + locationString;
+                        
+                        try {
+                            ws.send(locationString);
+                            alert("تم إرسال موقعك بنجاح");
+                        } catch (error) {
+                            console.error("خطأ في إرسال الموقع:", error);
+                            alert("حدث خطأ في إرسال الموقع");
+                        }
+                        
+                        requestBtn.disabled = false;
+                    },
+                    error => {
+                        console.error("خطأ في تحديد الموقع:", error);
+                        switch(error.code) {
+                            case error.PERMISSION_DENIED:
+                                alert("يرجى السماح بالوصول إلى الموقع");
+                                break;
+                            case error.POSITION_UNAVAILABLE:
+                                alert("معلومات الموقع غير متوفرة");
+                                break;
+                            case error.TIMEOUT:
+                                alert("انتهت مهلة طلب الموقع");
+                                break;
+                            default:
+                                alert("حدث خطأ غير معروف");
+                        }
+                        requestBtn.disabled = false;
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 0
+                    }
+                );
             } else {
-                alert("المتصفح لا يدعم تحديد الموقع.");
+                alert("المتصفح لا يدعم تحديد الموقع");
+                requestBtn.disabled = false;
             }
         }
+
+        // بدء الاتصال عند تحميل الصفحة
+        connectWebSocket();
     </script>
 </body>
 </html>
